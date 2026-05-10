@@ -3097,6 +3097,163 @@ input:focus, textarea:focus, select:focus {
 })();
 </script>
 
+
+
+<!-- Firestore SDK -->
+<script type="module">
+  import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+  import { getFirestore, doc, setDoc, getDoc, enableIndexedDbPersistence } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDDUoIkszKgK_9Yu5wHlqZ9IifIQWnhvv0",
+    authDomain: "fittrack-fb939.firebaseapp.com",
+    projectId: "fittrack-fb939",
+    storageBucket: "fittrack-fb939.firebasestorage.app",
+    messagingSenderId: "828892951236",
+    appId: "1:828892951236:web:ffe330ca7fe0cc6dae0f91"
+  };
+
+  // Use existing app if already initialized
+  const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+
+  // Enable offline persistence
+  try { enableIndexedDbPersistence(db); } catch(e) {}
+
+  // Save all local data to Firestore
+  window.firestoreSave = async function() {
+    const user = auth.currentUser;
+    if (!user) return;
+    try {
+      const data = {
+        profile: JSON.parse(localStorage.getItem('ft_profile') || 'null'),
+        sessions: JSON.parse(localStorage.getItem('ft_sessions') || '[]'),
+        nutrition: JSON.parse(localStorage.getItem('ft_nutrition') || '[]'),
+        metrics: JSON.parse(localStorage.getItem('ft_metrics') || '[]'),
+        pbs: JSON.parse(localStorage.getItem('ft_pbs') || '{}'),
+        badges: JSON.parse(localStorage.getItem('ft_badges') || '{}'),
+        settings: JSON.parse(localStorage.getItem('ft_v45_settings') || '{}'),
+        updatedAt: new Date().toISOString()
+      };
+      await setDoc(doc(db, 'users', user.uid, 'data', 'main'), data);
+      if (typeof showToast === 'function') showToast('☁️ Dati salvati nel cloud');
+      console.log('[Firestore] Dati salvati');
+    } catch(e) {
+      console.error('[Firestore] Errore salvataggio:', e);
+    }
+  };
+
+  // Load data from Firestore and sync to localStorage
+  window.firestoreLoad = async function() {
+    const user = auth.currentUser;
+    if (!user) return false;
+    try {
+      const snap = await getDoc(doc(db, 'users', user.uid, 'data', 'main'));
+      if (!snap.exists()) { console.log('[Firestore] Nessun dato cloud'); return false; }
+      const data = snap.data();
+      if (data.profile) localStorage.setItem('ft_profile', JSON.stringify(data.profile));
+      if (data.sessions) localStorage.setItem('ft_sessions', JSON.stringify(data.sessions));
+      if (data.nutrition) localStorage.setItem('ft_nutrition', JSON.stringify(data.nutrition));
+      if (data.metrics) localStorage.setItem('ft_metrics', JSON.stringify(data.metrics));
+      if (data.pbs) localStorage.setItem('ft_pbs', JSON.stringify(data.pbs));
+      if (data.badges) localStorage.setItem('ft_badges', JSON.stringify(data.badges));
+      if (data.settings) localStorage.setItem('ft_v45_settings', JSON.stringify(data.settings));
+      console.log('[Firestore] Dati caricati dal cloud, aggiornati il', data.updatedAt);
+      return true;
+    } catch(e) {
+      console.error('[Firestore] Errore caricamento:', e);
+      return false;
+    }
+  };
+
+  // Auto-save every 2 minutes when logged in
+  onAuthStateChanged(auth, function(user) {
+    if (user) {
+      // Load data on login
+      window.firestoreLoad().then(function(loaded) {
+        if (loaded) console.log('[Firestore] Sync completato al login');
+      });
+      // Auto-save every 2 minutes
+      setInterval(function() {
+        if (auth.currentUser) window.firestoreSave();
+      }, 120000);
+    }
+  });
+
+  // Expose save trigger for manual use
+  window.cloudSave = window.firestoreSave;
+</script>
+<!-- Firebase SDK -->
+<script src="https://www.googleapis.com/auth/drive.appdata"></script>
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDDUoIkszKgK_9Yu5wHlqZ9IifIQWnhvv0",
+    authDomain: "fittrack-fb939.firebaseapp.com",
+    projectId: "fittrack-fb939",
+    storageBucket: "fittrack-fb939.firebasestorage.app",
+    messagingSenderId: "828892951236",
+    appId: "1:828892951236:web:ffe330ca7fe0cc6dae0f91"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+
+  window.firebaseSignIn = async function() {
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      window._firebaseUser = user;
+      localStorage.setItem('ft_firebase_user', JSON.stringify({
+        uid: user.uid,
+        name: user.displayName,
+        email: user.email,
+        photo: user.photoURL
+      }));
+      // Firebase login success — entra nell'app
+      localStorage.setItem('ft_google_user', JSON.stringify({ uid: user.uid, name: user.displayName, email: user.email, photo: user.photoURL, ts: new Date().toISOString() }));
+      const loginScreen = document.getElementById('scr-google-login');
+      if (loginScreen) loginScreen.classList.remove('active');
+      if (typeof ftEnterApp === 'function') ftEnterApp();
+      if (typeof showToast === 'function') showToast('✅ Benvenuto ' + user.displayName + '!');
+    } catch(e) {
+      console.error('Firebase login error:', e);
+      if (typeof showToast === 'function') showToast('❌ Errore login: ' + e.message);
+    }
+  };
+
+  window.firebaseSignOut = async function() {
+    await signOut(auth);
+    localStorage.removeItem('ft_firebase_user');
+    window._firebaseUser = null;
+    location.reload();
+  };
+
+  // Check if already logged in
+  onAuthStateChanged(auth, function(user) {
+    if (user) {
+      window._firebaseUser = user;
+      localStorage.setItem('ft_firebase_user', JSON.stringify({
+        uid: user.uid,
+        name: user.displayName,
+        email: user.email,
+        photo: user.photoURL
+      }));
+      localStorage.setItem('ft_google_user', JSON.stringify({ uid: user.uid, name: user.displayName, email: user.email, photo: user.photoURL }));
+      const loginScreen2 = document.getElementById('scr-google-login');
+      if (loginScreen2) loginScreen2.classList.remove('active');
+      // Only auto-enter if not already in app
+      if (!document.getElementById('scr-app')?.classList.contains('active')) {
+        if (typeof ftEnterApp === 'function') setTimeout(ftEnterApp, 500);
+      }
+    }
+  });
+</script>
 </head>
 <body>
 
@@ -3131,7 +3288,7 @@ input:focus, textarea:focus, select:focus {
       <div style="font-size:13px;color:var(--text2);text-align:center;line-height:1.6;margin-bottom:24px;">I tuoi dati vengono salvati in modo sicuro<br>sul tuo Google Drive personale.</div>
 
       <!-- Google button -->
-      <button id="google-signin-btn" onclick="ftGoogleLogin()" style="
+      <button id="google-signin-btn" onclick="firebaseSignIn()" style="
         width:100%;display:flex;align-items:center;justify-content:center;gap:12px;
         padding:15px 20px;border:1.5px solid rgba(255,255,255,0.12);
         background:rgba(255,255,255,0.06);border-radius:var(--r-lg);
@@ -11767,12 +11924,31 @@ function ftEnterApp() {
 }
 
 async function ftGoogleLogin() {
+  // Usa Firebase Authentication
+  const statusEl = document.getElementById('google-login-status');
   const btn = document.getElementById('google-signin-btn');
+  if (btn) btn.style.display = 'none';
+  if (statusEl) statusEl.textContent = 'Connessione a Google…';
+  if (typeof window.firebaseSignIn === 'function') {
+    await window.firebaseSignIn();
+    return;
+  }
+  // fallback — riprova tra 1.5s
+  setTimeout(async () => {
+    if (typeof window.firebaseSignIn === 'function') {
+      await window.firebaseSignIn();
+    } else {
+      if (statusEl) statusEl.textContent = 'Errore. Ricarica la pagina.';
+      if (btn) btn.style.display = 'flex';
+    }
+  }, 1500);
+}
+async function _ftGoogleLogin_DISABLED() {
+  const btn2 = document.getElementById('google-signin-btn');
   const loading = document.getElementById('google-login-loading');
   const errEl = document.getElementById('google-login-error');
-  const statusEl = document.getElementById('google-login-status');
-
-  btn.style.display = 'none';
+  const statusEl2 = document.getElementById('google-login-status');
+  btn2.style.display = 'none';
   loading.style.display = 'block';
   errEl.style.display = 'none';
 
@@ -11788,10 +11964,8 @@ async function ftGoogleLogin() {
         loading.style.display = 'none';
         btn.style.display = 'flex';
         const errMsg = document.getElementById('google-login-error-msg');
-        if(errMsg) errMsg.textContent = '⚙️ Google Client ID non configurato. Tocca per la guida.';
-        errEl.style.display = 'block';
-        errEl.style.cursor = 'pointer';
-        errEl.onclick = () => { if(window.GoogleSync) window.GoogleSync.injectGoogleSetupGuide(); };
+        // Client ID configurato
+        // errore nascosto — client ID configurato
       }, 800);
       return;
     }
@@ -27293,7 +27467,6 @@ console.log('[FitTrack AI] PWA Bootstrap completato ✅');
      V43 FIX — Esercizi nav + Progressione storica + Google Sync
 ════════════════════════════════════════════════════════════ -->
 <script>
-(function v43Fix() {
 
 /* ══════════════════════════════════════════════════════════
    1. FIX pagina Esercizi — renderLibrary + filtri + gym exs
@@ -27448,7 +27621,7 @@ var _patchTimer = setInterval(function() {
 ══════════════════════════════════════════════════════════ */
 window.GoogleSync = (function() {
   // Google OAuth2 config — usa il tuo Client ID da console.cloud.google.com
-  var CLIENT_ID = '532487089639-rc1tu5tntiivik2cv21o7ppr3kkljp75.apps.googleusercontent.com';
+  var CLIENT_ID = '652881121853-oon15tbdtohv1im4gl1hmn9t75d1738c.apps.googleusercontent.com';
   var SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
   var FILE_NAME = 'fittrack_backup.json';
 
@@ -27583,11 +27756,7 @@ Content-Type: application/json
 
   /* ── API pubblica ── */
   async function save() {
-    if (CLIENT_ID === 'INSERISCI_IL_TUO_GOOGLE_CLIENT_ID_QUI') {
-      if (typeof showToast==='function') showToast('⚠️ Configura il Google Client ID nel codice');
-      injectGoogleSetupGuide();
-      return;
-    }
+    // Client ID configurato
     try {
       if (typeof showToast==='function') showToast('☁️ Accesso Google in corso...');
       var token = await getToken();
@@ -27604,9 +27773,7 @@ Content-Type: application/json
   }
 
   async function load() {
-    if (CLIENT_ID === 'INSERISCI_IL_TUO_GOOGLE_CLIENT_ID_QUI') {
-      injectGoogleSetupGuide(); return;
-    }
+    // Client ID configurato
     try {
       if (typeof showToast==='function') showToast('☁️ Scaricamento backup...');
       var token = await getToken();
@@ -27634,7 +27801,7 @@ Content-Type: application/json
   }
 
   function isConfigured() {
-    return CLIENT_ID !== 'INSERISCI_IL_TUO_GOOGLE_CLIENT_ID_QUI';
+    return true; // Client ID configurato
   }
 
   /* ── Guida setup Google Client ID ── */
@@ -29733,7 +29900,77 @@ console.log('[V45 MEGA UX] ✅ 11 moduli installati — FitTrack V45 store-ready
     var pbList=Object.entries(pbs||{}).slice(0,8);
     var exDB=typeof EX_DB!=='undefined'?EX_DB:[];
     var w=window.open('','_blank');
-    w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>FitTrack Report '+monthStr+'</title><style>body{font-family:system-ui;max-width:700px;margin:0 auto;padding:30px;color:#111;}h1{font-size:26px;font-weight:900;background:#0B0B18;color:#C8F53C;padding:20px;border-radius:12px;}h2{font-size:16px;font-weight:800;border-bottom:2px solid #eee;padding-bottom:6px;margin:20px 0 10px;}.sg{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;}.sb{background:#f8f8f8;border-radius:10px;padding:14px;text-align:center;}.sn{font-size:28px;font-weight:900;}.sl{font-size:11px;color:#666;margin-top:4px;}.sr{padding:8px 12px;border:1px solid #eee;border-radius:8px;margin-bottom:5px;display:flex;justify-content:space-between;font-size:13px;}@media print{button{display:none!important;}}</style></head><body><h1>FitTrack Report<br><span style="font-size:14px;font-weight:400;color:#aaa;">'+monthStr+' — '+(profile&&profile.name||'Atleta')+'</span></h1><div class="sg"><div class="sb"><div class="sn">'+sessM.length+'</div><div class="sl">Sessioni</div></div><div class="sb"><div class="sn">'+totalDur+'</div><div class="sl">Minuti</div></div><div class="sb"><div class="sn">'+streak+'</div><div class="sl">Streak gg</div></div></div><h2>Sessioni</h2>'+sessM.map(function(s){return '<div class="sr"><b>'+(s.dayName||s.progName||'Sessione')+'</b><span style="color:#666;">'+s.date+' · '+(s.duration||0)+'min</span></div>';}).join('')+'<h2>Obiettivi</h2><p>Livello: <b>'+(profile&&profile.level||'?')+'</b> · Obiettivi: <b>'+((profile&&profile.goals||[]).join(', ')||'—')+'</b></p>'+( pbList.length?'<h2>Personal Records</h2>'+pbList.map(function(kv){var nm=exDB.find(function(e){return e.id===kv[0];});return '<div class="sr"><b>'+(nm?nm.name:kv[0])+'</b><span>'+(kv[1].weight||kv[1])+(kv[1].weight?'kg':'pts')+'</span></div>';}).join(''):'')+'<p style="margin-top:30px;color:#aaa;font-size:11px;">FitTrack V45 — '+new Date().toLocaleDateString('it-IT')+'</p><button onclick="window.print()" style="margin-top:16px;padding:10px 24px;background:#C8F53C;border:none;border-radius:99px;font-weight:800;cursor:pointer;">Stampa / Salva PDF</button><\'+'script>
+    w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>FitTrack Report '+monthStr+'</title><style>body{font-family:system-ui;max-width:700px;margin:0 auto;padding:30px;color:#111;}h1{font-size:26px;font-weight:900;background:#0B0B18;color:#C8F53C;padding:20px;border-radius:12px;}h2{font-size:16px;font-weight:800;border-bottom:2px solid #eee;padding-bottom:6px;margin:20px 0 10px;}.sg{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;}.sb{background:#f8f8f8;border-radius:10px;padding:14px;text-align:center;}.sn{font-size:28px;font-weight:900;}.sl{font-size:11px;color:#666;margin-top:4px;}.sr{padding:8px 12px;border:1px solid #eee;border-radius:8px;margin-bottom:5px;display:flex;justify-content:space-between;font-size:13px;}@media print{button{display:none!important;}}</style>
+<!-- Firebase SDK -->
+<script src="https://www.googleapis.com/auth/drive.appdata"></script>
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDDUoIkszKgK_9Yu5wHlqZ9IifIQWnhvv0",
+    authDomain: "fittrack-fb939.firebaseapp.com",
+    projectId: "fittrack-fb939",
+    storageBucket: "fittrack-fb939.firebasestorage.app",
+    messagingSenderId: "828892951236",
+    appId: "1:828892951236:web:ffe330ca7fe0cc6dae0f91"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+
+  window.firebaseSignIn = async function() {
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      window._firebaseUser = user;
+      localStorage.setItem('ft_firebase_user', JSON.stringify({
+        uid: user.uid,
+        name: user.displayName,
+        email: user.email,
+        photo: user.photoURL
+      }));
+      // Firebase login success — entra nell'app
+      localStorage.setItem('ft_google_user', JSON.stringify({ uid: user.uid, name: user.displayName, email: user.email, photo: user.photoURL, ts: new Date().toISOString() }));
+      const loginScreen = document.getElementById('scr-google-login');
+      if (loginScreen) loginScreen.classList.remove('active');
+      if (typeof ftEnterApp === 'function') ftEnterApp();
+      if (typeof showToast === 'function') showToast('✅ Benvenuto ' + user.displayName + '!');
+    } catch(e) {
+      console.error('Firebase login error:', e);
+      if (typeof showToast === 'function') showToast('❌ Errore login: ' + e.message);
+    }
+  };
+
+  window.firebaseSignOut = async function() {
+    await signOut(auth);
+    localStorage.removeItem('ft_firebase_user');
+    window._firebaseUser = null;
+    location.reload();
+  };
+
+  // Check if already logged in
+  onAuthStateChanged(auth, function(user) {
+    if (user) {
+      window._firebaseUser = user;
+      localStorage.setItem('ft_firebase_user', JSON.stringify({
+        uid: user.uid,
+        name: user.displayName,
+        email: user.email,
+        photo: user.photoURL
+      }));
+      localStorage.setItem('ft_google_user', JSON.stringify({ uid: user.uid, name: user.displayName, email: user.email, photo: user.photoURL }));
+      const loginScreen2 = document.getElementById('scr-google-login');
+      if (loginScreen2) loginScreen2.classList.remove('active');
+      // Only auto-enter if not already in app
+      if (!document.getElementById('scr-app')?.classList.contains('active')) {
+        if (typeof ftEnterApp === 'function') setTimeout(ftEnterApp, 500);
+      }
+    }
+  });
+</script>
+</head><body><h1>FitTrack Report<br><span style="font-size:14px;font-weight:400;color:#aaa;">'+monthStr+' — '+(profile&&profile.name||'Atleta')+'</span></h1><div class="sg"><div class="sb"><div class="sn">'+sessM.length+'</div><div class="sl">Sessioni</div></div><div class="sb"><div class="sn">'+totalDur+'</div><div class="sl">Minuti</div></div><div class="sb"><div class="sn">'+streak+'</div><div class="sl">Streak gg</div></div></div><h2>Sessioni</h2>'+sessM.map(function(s){return '<div class="sr"><b>'+(s.dayName||s.progName||'Sessione')+'</b><span style="color:#666;">'+s.date+' · '+(s.duration||0)+'min</span></div>';}).join('')+'<h2>Obiettivi</h2><p>Livello: <b>'+(profile&&profile.level||'?')+'</b> · Obiettivi: <b>'+((profile&&profile.goals||[]).join(', ')||'—')+'</b></p>'+( pbList.length?'<h2>Personal Records</h2>'+pbList.map(function(kv){var nm=exDB.find(function(e){return e.id===kv[0];});return '<div class="sr"><b>'+(nm?nm.name:kv[0])+'</b><span>'+(kv[1].weight||kv[1])+(kv[1].weight?'kg':'pts')+'</span></div>';}).join(''):'')+'<p style="margin-top:30px;color:#aaa;font-size:11px;">FitTrack V45 — '+new Date().toLocaleDateString('it-IT')+'</p><button onclick="window.print()" style="margin-top:16px;padding:10px 24px;background:#C8F53C;border:none;border-radius:99px;font-weight:800;cursor:pointer;">Stampa / Salva PDF</button><\'+'script>
 
 /* V45 EXTRA FOOD DB */
 (function addV45Foods(){
