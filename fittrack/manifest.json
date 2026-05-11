@@ -1,0 +1,34 @@
+{
+  "name": "FitTrack AI",
+  "short_name": "FitTrack",
+  "description": "Il tuo coach personale per l'allenamento",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#080810",
+  "theme_color": "#C8F53C",
+  "orientation": "portrait",
+  "lang": "it",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' fill='%2306060E'/%3E%3Crect x='8' y='8' width='176' height='176' rx='32' fill='%230B0B18'/%3E%3Ctext x='50%25' y='54%25' font-family='Arial Black,sans-serif' font-size='72' font-weight='900' fill='%23C8F53C' text-anchor='middle' dominant-baseline='middle'%3EFT%3C/text%3E%3C/SVG%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%2306060E'/%3E%3Crect x='20' y='20' width='472' height='472' rx='80' fill='%230B0B18'/%3E%3Ctext x='50%25' y='54%25' font-family='Arial Black,sans-serif' font-size='200' font-weight='900' fill='%23C8F53C' text-anchor='middle' dominant-baseline='middle'%3EFT%3C/text%3E%3C/SVG%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["health", "fitness", "sports"],
+  "shortcuts": [
+    {
+      "name": "Nuovo allenamento",
+      "short_name": "Allena",
+      "url": "/?screen=workout",
+      "description": "Inizia un allenamento"
+    }
+  ]
+}
